@@ -1,0 +1,5 @@
+{
+  "name": "Wollamppong Card Game_Singleplay",
+  "description": "A digital version of the Korean card game Wollamppong. Players receive two cards and bet on whether a third card will fall between their two numbers. Bet wisely and take the pot!",
+  "requestFramePermissions": []
+}
