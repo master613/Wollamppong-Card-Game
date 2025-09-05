@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 
 // 여기에 직접 업로드한 배경 음악 .wav 또는 .mp3 파일의 URL 3개를 붙여넣으세요.
 export const backgroundMusicUrls = [
@@ -30,7 +30,25 @@ export type SoundEffect = keyof typeof soundEffects;
 // Use a singleton pattern for Audio elements to avoid re-creating them.
 const sfxAudioCache: Map<SoundEffect, HTMLAudioElement> = new Map();
 let backgroundMusic: HTMLAudioElement | null = null;
+let currentTrackIndex = -1; // Keep track of the current song index
 let elementsAreInitialized = false;
+
+// Function to play the next track in the sequence
+const playNextTrack = () => {
+    if (!backgroundMusic) return;
+
+    const validUrls = backgroundMusicUrls.filter(url => !url.startsWith('YOUR_'));
+    if (validUrls.length === 0) return;
+
+    currentTrackIndex = (currentTrackIndex + 1) % validUrls.length;
+    const trackUrl = validUrls[currentTrackIndex];
+    
+    backgroundMusic.src = trackUrl;
+    backgroundMusic.play().catch(error => {
+        console.error(`Error playing music track ${trackUrl}:`, error);
+    });
+};
+
 
 // This function initializes all audio elements once.
 const initializeAudioElements = () => {
@@ -53,8 +71,9 @@ const initializeAudioElements = () => {
     // Initialize Background Music
     if (backgroundMusicUrls.length > 0 && !backgroundMusic) {
         backgroundMusic = new Audio();
-        backgroundMusic.loop = true;
+        // backgroundMusic.loop = true; // Loop is now handled by the 'ended' event to create a playlist.
         backgroundMusic.volume = 0.3;
+        backgroundMusic.addEventListener('ended', playNextTrack); // Play next song when current one finishes
         backgroundMusic.addEventListener('error', (e) => {
             console.error(`Error loading background music. Check URL or file format.`, e);
         });
@@ -84,18 +103,22 @@ export const useSounds = (isSfxMuted: boolean, isMusicMuted: boolean) => {
   }, [isSfxMuted]);
   
   const playBackgroundMusic = useCallback(() => {
-    if (isMusicMuted || !backgroundMusic || backgroundMusicUrls.length === 0) return;
+    if (isMusicMuted || !backgroundMusic) return;
 
-    const validUrls = backgroundMusicUrls.filter(url => !url.startsWith('YOUR_'));
-    if (validUrls.length === 0) return;
+    // If music is already playing, do nothing to avoid interruption.
+    if (!backgroundMusic.paused) {
+      return;
+    }
 
-    const randomIndex = Math.floor(Math.random() * validUrls.length);
-    const trackUrl = validUrls[randomIndex];
-    
-    backgroundMusic.src = trackUrl;
-    backgroundMusic.play().catch(error => {
-        console.error("Background music could not be played. User interaction might be required.", error);
-    });
+    // If music is paused (e.g., from a previous session), resume it.
+    if (backgroundMusic.src) {
+        backgroundMusic.play().catch(error => {
+            console.error("Background music could not be resumed.", error);
+        });
+    } else {
+        // If music has not been started yet, start the playlist from the first track.
+        playNextTrack();
+    }
   }, [isMusicMuted]);
 
   const stopBackgroundMusic = useCallback(() => {
